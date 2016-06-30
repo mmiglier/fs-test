@@ -6,7 +6,7 @@
 #include <fcntl.h>
 
 #define FILE_NAME_MAX_LEN  32
-#define MAX_FILE_COUNT 48
+#define MAX_FILE_COUNT 32
 #define MAX_FILE_SIZE  (1024 * 16)
 #define FILE_BUF_SIZE 256
 
@@ -44,9 +44,10 @@ static void get_new_file_name(char *name)
 static uint32_t fill_test_data(uint8_t *data, uint32_t size)
 {    
     uint32_t sum = 0;
+    uint8_t first_byte = rand() % 0xFF;
 
     for (int i = 0; i < size; ++i) {
-        data[i] = rand() % 0xFF;
+        data[i] = first_byte++;
         sum += data[i];
     }
 
@@ -368,7 +369,7 @@ bool fs_test_run(int32_t iterations)
 {
     fs_test_init();
 
-    while (iterations--)
+    for (int32_t i = 0; i < iterations; i++)
     {
         int op = rand() % TOTAL_INTENSITY;
         if (op < CREATE_INTENSITY) {
@@ -392,6 +393,7 @@ bool fs_test_run(int32_t iterations)
                 return false;
             }
         }
+        printf("Testing %d%%\n", 100 * i / iterations);
     }
 
     if (!test_read_verify_all_files()) {
