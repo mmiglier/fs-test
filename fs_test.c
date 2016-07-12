@@ -116,10 +116,10 @@ uint32_t calc_checksum(uint8_t *data, uint32_t size)
     return sum;
 }
 
-static bool verify_file(int fd, uint32_t size, uint32_t checksum)
+static bool read_file_checksum(int fd, uint32_t size, uint32_t *sum)
 {
     uint32_t r_bytes = 0;
-    uint32_t sum = 0;
+    *sum = 0;
 
     while (r_bytes != size) {
         uint32_t remaining = size - r_bytes;
@@ -127,15 +127,25 @@ static bool verify_file(int fd, uint32_t size, uint32_t checksum)
             if (read(fd, test_buf, FILE_BUF_SIZE) != FILE_BUF_SIZE) {
                 return false;
             }
-            sum += calc_checksum(test_buf, FILE_BUF_SIZE);
+            *sum += calc_checksum(test_buf, FILE_BUF_SIZE);
             r_bytes += FILE_BUF_SIZE;
         } else {
             if (read(fd, test_buf, remaining) != remaining) {
                 return false;
             }
-            sum += calc_checksum(test_buf, remaining);
+            *sum += calc_checksum(test_buf, remaining);
             r_bytes += remaining;
         }
+    }
+    return true;
+}
+
+static bool verify_file(int fd, uint32_t size, uint32_t checksum)
+{
+    uint32_t sum = 0;
+
+    if (!read_file_checksum(fd, size, &sum)) {
+        return false;
     }
 
     /* DBG_LOG("File verification, checksum=%d\n", sum); */
@@ -333,6 +343,80 @@ static bool test_remove_file()
     return remove_file(index);
 }
 
+static inline bool read_part_with_lseek(uint32_t index,
+        uint32_t start, uint32_t size, uint32_t *checksum)
+{
+    int fd = open(test_files[index].name, O_RDONLY);
+    if (fd == -1) {
+        return false;
+    }
+
+    DBG_LOG("Testing lseek file='%s' pos='%d' size='%d'\n",
+            test_files[index].name, start, size);
+
+    if (lseek(fd, start, SEEK_SET) != start) {
+        return false;
+    }
+
+    if (!read_file_checksum(fd, size, checksum)) {
+        return false;
+    } 
+
+    return close(fd) == 0;
+}
+
+static inline bool read_part_without_lseek(uint32_t index,
+        uint32_t start, uint32_t size, uint32_t *checksum)
+{
+    uint32_t ignore;
+
+    int fd = open(test_files[index].name, O_RDONLY);
+    if (fd == -1) {
+        return false;
+    }
+
+    // read data until start, lseek simulation
+    if (!read_file_checksum(fd, start, &ignore)) {
+        return false;
+    }
+
+    if (!read_file_checksum(fd, size, checksum)) {
+        return false;
+    } 
+
+    return close(fd) == 0;
+}
+
+/**
+ * Read some of the file and verify that read data is correct.
+ * lseek is used to move file read pointer.
+ */
+static bool test_lseek_file()
+{
+    int32_t index = get_random_existing_file_index();  
+    uint32_t checksum, sum;
+
+    if (index == -1) {
+        return true;   // no existing files, skipping
+    }
+    if (test_files[index].size == 0) {
+        return true;  // if no data in a file, skipping
+    }
+
+    int32_t start = rand() % test_files[index].size;
+    int32_t size = rand() % (test_files[index].size - start);
+
+    if (!read_part_without_lseek(index, start, size, &checksum)) {
+        return false;
+    }
+
+    if (!read_part_with_lseek(index, start, size, &sum)) {
+        return false;
+    }
+
+    return checksum == sum;
+}
+
 static bool test_read_verify_all_files()
 {
     for (uint32_t i = 0; i < MAX_FILE_COUNT; i++) {
@@ -362,8 +446,9 @@ static bool remove_all_files()
 #define REWRITE_INTENSITY       (10 + READ_INTENSITY)
 #define APPEND_INTENSITY        (10 + REWRITE_INTENSITY)
 #define REMOVE_INTENSITY        (10 + APPEND_INTENSITY)
+#define LSEEK_INTENSITY         (10 + REMOVE_INTENSITY)
 
-#define TOTAL_INTENSITY         (REMOVE_INTENSITY)
+#define TOTAL_INTENSITY         (LSEEK_INTENSITY)
 
 bool fs_test_run(int32_t iterations)
 {
@@ -390,6 +475,10 @@ bool fs_test_run(int32_t iterations)
             }
         } else if (op < REMOVE_INTENSITY) {
             if (!test_remove_file()) {
+                return false;
+            }
+        } else if (op < LSEEK_INTENSITY) {
+            if (!test_lseek_file()) {
                 return false;
             }
         }
