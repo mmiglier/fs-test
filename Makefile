@@ -1,14 +1,16 @@
 
 CFLAGS += -std=gnu99
 
-all: test
+all: fs_test
 
-test: main.o fs_test.o 
+fs_test: main.o fs_test.o 
 	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
+test: fs_test
+	./fs_test
 
 clean:
 	rm -f *.o
-	rm -f test
+	rm -f fs_test
 
 .PHONY: all clean

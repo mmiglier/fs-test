@@ -1,9 +1,33 @@
+/**
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016 sheinz (https://github.com/sheinz)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 #include "fs_test.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 #define FILE_NAME_MAX_LEN  32
 #define MAX_FILE_COUNT 32
@@ -15,7 +39,7 @@
 #define DBG_LOG(...)  printf(__VA_ARGS__)
 
 typedef struct {
-    bool exist;    
+    bool exist;
     char name[FILE_NAME_MAX_LEN];
     uint32_t size;
     uint32_t checksum;
@@ -42,7 +66,7 @@ static void get_new_file_name(char *name)
  * Write test data to data and return sum of all data bytes written
  */
 static uint32_t fill_test_data(uint8_t *data, uint32_t size)
-{    
+{
     uint32_t sum = 0;
     uint8_t first_byte = rand() % 0xFF;
 
@@ -90,14 +114,14 @@ static bool create_file(uint32_t file_index)
             test_files[file_index].name,
             test_files[file_index].size);
 
-    int fd = open(test_files[file_index].name, O_WRONLY | O_CREAT, 
+    int fd = open(test_files[file_index].name, O_WRONLY | O_CREAT,
             S_IRUSR|S_IWUSR);
     if (fd == -1) {
         return false;
     }
 
-    if (!write_file(fd, 
-                    test_files[file_index].size, 
+    if (!write_file(fd,
+                    test_files[file_index].size,
                     &test_files[file_index].checksum)) {
         return false;
     }
@@ -167,7 +191,7 @@ static bool read_verify_file(uint32_t file_index)
     if (!verify_file(fd, test_files[file_index].size,
                 test_files[file_index].checksum)) {
         return false;
-    } 
+    }
 
     return close(fd) == 0;
 }
@@ -188,8 +212,8 @@ static bool rewrite_file(uint32_t file_index)
         return false;
     }
 
-    if (!write_file(fd, 
-                    test_files[file_index].size, 
+    if (!write_file(fd,
+                    test_files[file_index].size,
                     &test_files[file_index].checksum)) {
         return false;
     }
@@ -215,8 +239,8 @@ static bool append_file(uint32_t file_index)
         return false;
     }
 
-    if (!write_file(fd, 
-                    append_size, 
+    if (!write_file(fd,
+                    append_size,
                     &test_files[file_index].checksum)) {
         return false;
     }
@@ -248,7 +272,7 @@ static uint32_t number_of_existing_files()
         if (test_files[i].exist) {
             files++;
         }
-    }    
+    }
     return files;
 }
 
@@ -284,24 +308,24 @@ static int32_t get_free_file_index()
         if (!test_files[i].exist) {
             return i;
         }
-    }        
+    }
     return -1;
 }
 
 static bool test_create_file()
 {
-    int32_t index = get_free_file_index();         
+    int32_t index = get_free_file_index();
 
     if (index == -1) {
         return true;   // no free file records, skipping
     }
-            
-    return create_file(index); 
+
+    return create_file(index);
 }
 
 static bool test_read_verify_file()
 {
-    int32_t index = get_random_existing_file_index();     
+    int32_t index = get_random_existing_file_index();
 
     if (index == -1) {
         return true;   // no existing files, skipping
@@ -312,7 +336,7 @@ static bool test_read_verify_file()
 
 static bool test_rewrite_file()
 {
-    int32_t index = get_random_existing_file_index();     
+    int32_t index = get_random_existing_file_index();
 
     if (index == -1) {
         return true;   // no existing files, skipping
@@ -323,7 +347,7 @@ static bool test_rewrite_file()
 
 static bool test_append_file()
 {
-    int32_t index = get_random_existing_file_index();     
+    int32_t index = get_random_existing_file_index();
 
     if (index == -1) {
         return true;   // no existing files, skipping
@@ -334,7 +358,7 @@ static bool test_append_file()
 
 static bool test_remove_file()
 {
-    int32_t index = get_random_existing_file_index();     
+    int32_t index = get_random_existing_file_index();
 
     if (index == -1) {
         return true;   // no existing files, skipping
@@ -360,7 +384,7 @@ static inline bool read_part_with_lseek(uint32_t index,
 
     if (!read_file_checksum(fd, size, checksum)) {
         return false;
-    } 
+    }
 
     return close(fd) == 0;
 }
@@ -382,7 +406,7 @@ static inline bool read_part_without_lseek(uint32_t index,
 
     if (!read_file_checksum(fd, size, checksum)) {
         return false;
-    } 
+    }
 
     return close(fd) == 0;
 }
@@ -393,7 +417,7 @@ static inline bool read_part_without_lseek(uint32_t index,
  */
 static bool test_lseek_file()
 {
-    int32_t index = get_random_existing_file_index();  
+    int32_t index = get_random_existing_file_index();
     uint32_t checksum, sum;
 
     if (index == -1) {
@@ -415,6 +439,40 @@ static bool test_lseek_file()
     }
 
     return checksum == sum;
+}
+
+static bool test_stat_file()
+{
+    int32_t index = get_random_existing_file_index();
+
+    if (index == -1) {
+        return true;   // no existing files, skipping
+    }
+
+    DBG_LOG("Testing stat/fstat file='%s'\n", test_files[index].name);
+
+    struct stat sb;
+    if (stat(test_files[index].name, &sb) < 0) {
+        return false;
+    }
+    if (sb.st_size != test_files[index].size) {
+        DBG_LOG("stat file size doesn't match\n");
+        return false;
+    }
+
+    int fd = open(test_files[index].name, O_RDONLY);
+    if (fd == -1) {
+        return false;
+    }
+    if (fstat(fd, &sb) < 0) {
+        return false;
+    }
+    if (sb.st_size != test_files[index].size) {
+        DBG_LOG("fstat file size doesn't match\n");
+        return false;
+    }
+    close(fd);
+    return true;
 }
 
 static bool test_read_verify_all_files()
@@ -447,8 +505,9 @@ static bool remove_all_files()
 #define APPEND_INTENSITY        (10 + REWRITE_INTENSITY)
 #define REMOVE_INTENSITY        (10 + APPEND_INTENSITY)
 #define LSEEK_INTENSITY         (10 + REMOVE_INTENSITY)
+#define STAT_INTENSITY          (10 + LSEEK_INTENSITY)
 
-#define TOTAL_INTENSITY         (LSEEK_INTENSITY)
+#define TOTAL_INTENSITY         (STAT_INTENSITY)
 
 bool fs_test_run(int32_t iterations)
 {
@@ -479,6 +538,10 @@ bool fs_test_run(int32_t iterations)
             }
         } else if (op < LSEEK_INTENSITY) {
             if (!test_lseek_file()) {
+                return false;
+            }
+        } else if (op < STAT_INTENSITY) {
+            if (!test_stat_file()) {
                 return false;
             }
         }
