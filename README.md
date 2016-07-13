@@ -1,4 +1,6 @@
-# fs-test POSIX file operation test.
+# POSIX file operation test
+
+[![Build Status](https://travis-ci.org/sheinz/fs-test.svg?branch=master)](https://travis-ci.org/sheinz/fs-test)
 
 This is a simple load test for POSIX file operations.
 It tests straight forward file access.
