@@ -5,7 +5,11 @@
 This is a simple load test for POSIX file operations.
 It tests straight forward file access.
 
-The following functions are tested:
+## Tests included
+ * File system load test
+ * File system speed benchmark
+
+## The following functions are tested:
  * open
  * close
  * read
