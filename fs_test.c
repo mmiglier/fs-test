@@ -47,9 +47,13 @@ typedef struct {
 
 static TestFile test_files[MAX_FILE_COUNT];
 static uint8_t test_buf[FILE_BUF_SIZE];
+static uint32_t total_written;
+static uint32_t total_read;
 
 static void fs_test_init()
 {
+    total_written = 0;
+    total_read = 0;
     for (uint32_t i = 0; i < MAX_FILE_COUNT; i++) {
         test_files[i].exist = false;
     }
@@ -100,6 +104,7 @@ static bool write_file(int fd, uint32_t size, uint32_t *checksum)
             written += remaining;
         }
     }
+    total_written += written;
     return true;
 }
 
@@ -161,6 +166,7 @@ static bool read_file_checksum(int fd, uint32_t size, uint32_t *sum)
             r_bytes += remaining;
         }
     }
+    total_read += r_bytes;
     return true;
 }
 
@@ -509,7 +515,7 @@ static bool remove_all_files()
 
 #define TOTAL_INTENSITY         (STAT_INTENSITY)
 
-bool fs_test_run(int32_t iterations)
+bool fs_load_test_run(int32_t iterations)
 {
     fs_test_init();
 
@@ -554,5 +560,42 @@ bool fs_test_run(int32_t iterations)
     if (!remove_all_files()) {
         return false;
     }
+    return true;
+}
+
+bool fs_speed_test_run(get_current_time_func get_time,
+        float *write_rate,
+        float *read_rate)
+{
+    int files = 0;
+    fs_time_t start_time, write_time, read_time;
+    fs_test_init();
+
+    start_time = get_time();
+    for (files = 0; files < MAX_FILE_COUNT; files++) {
+        if (!test_create_file()) {
+            return false;
+        }
+    }
+    write_time = get_time() - start_time;
+    DBG_LOG("Written %d files, %d bytes\n", files, total_written);
+    DBG_LOG("Writing took %d ticks\n", write_time);
+
+    start_time = get_time();
+    if (!test_read_verify_all_files()) {
+        return false;
+    }
+    read_time = get_time() - start_time;
+
+    DBG_LOG("Read %d files, %d bytes\n", files, total_read);
+    DBG_LOG("Reading took %d ticks\n", read_time);
+
+    if (!remove_all_files()) {
+        return false;
+    }
+
+    *write_rate = (float)total_written / write_time;
+    *read_rate = (float)total_read / read_time;
+
     return true;
 }
